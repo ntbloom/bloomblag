@@ -1,0 +1,28 @@
+baseURL = "http://example.org/"
+languageCode = "en-us"
+title = "Bloomblag"
+theme = "ananke"
+
+MetaDataFormat = "yaml"
+DefaultContentLanguage = "en"
+SectionPagesMenu = "main"
+Paginate = 3 
+googleAnalytics = ""
+enableRobotsTXT = true
+
+[sitemap]
+  changefreq = "monthly"
+  priority = 0.5
+  filename = "sitemap.xml"
+
+[params]
+  custom_css = ["css/overrides.css"]
+  show_reading_time = true
+  background_color_class = "bg-gray"
+  body_classes = "sans-serif bg-near-white"
+  post_content_classes = "sans-serif bg-near-white"
+  recent_posts_number = 2
+  favicon = "favicon.ico"
+
+[markup.goldmark.renderer]
+  unsafe = true
