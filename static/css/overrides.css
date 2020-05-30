@@ -1,0 +1,102 @@
+/* stylesheet for overriding specific defaults in the theme. Some notes:
+  `.hightlight` is the class for block code
+*/
+@import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300&display=swap");
+:root {
+  --gap: 3em;
+}
+
+/* hyperlinks */
+a {
+  text-decoration: none;
+}
+
+/* get the layout spacing a little looser */
+table,
+.highlight {
+  margin-top: var(--gap);
+  margin-bottom: var(--gap);
+}
+
+blockquote {
+  margin-top: calc(var(--gap) * 1.2) !important;
+  margin-bottom: calc(var(--gap) * 1.2) !important;
+}
+
+h1,
+h2,
+h3 {
+  margin-top: var(--gap);
+  margin-bottom: calc(var(--gap) * 0.5);
+}
+
+li {
+  padding: 0.75em;
+}
+
+/* table formatting */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+table td {
+  border-bottom: 2px solid #ddd;
+  padding: 0.25em;
+  text-align: left;
+}
+
+table th {
+  text-align: left;
+}
+
+.neg {
+  color: red;
+}
+.pos {
+  color: green;
+}
+.neut {
+  color: blue;
+}
+
+/* formatting code outside the big blocks */
+
+code {
+  font-family: monospace;
+}
+
+p > code {
+  font-size: 100%;
+  background-color: #ddd /*#efe6e8*/;
+}
+
+/* blockquotes */
+blockquote {
+  border-left: none !important;
+  border-top: 2px solid #ddd;
+  border-bottom: 2px solid #ddd;
+}
+
+/* header and footer overrides for the description */
+#head-desc {
+  font-size: 0.75em;
+  margin-left: 3em;
+}
+
+#foot-desc {
+  font-size: 0.75em;
+  font-style: italic;
+  text-align: center;
+  margin-left: 3em;
+}
+
+/* the contact page */
+#contact-icons > a {
+  color: #000;
+  text-decoration: underline;
+}
+
+figcaption {
+  color: grey;
+}

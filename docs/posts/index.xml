@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Posts on Bloomblag</title>
+    <link>https://ntbloom.github.io/bloomblag/posts/</link>
+    <description>Recent content in Posts on Bloomblag</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 14 May 2020 00:00:00 +0000</lastBuildDate>
+    
+	<atom:link href="https://ntbloom.github.io/bloomblag/posts/index.xml" rel="self" type="application/rss+xml" />
+    
+    
+    <item>
+      <title>When Is It Okay to Kiss Your Cousin?</title>
+      <link>https://ntbloom.github.io/bloomblag/posts/kissing-cousins/</link>
+      <pubDate>Thu, 14 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://ntbloom.github.io/bloomblag/posts/kissing-cousins/</guid>
+      <description>&amp;ldquo;Kissing cousins&amp;rdquo; remains one of my all-time favorite American folk-humor memes. I&amp;rsquo;m still not exactly sure what it refers to, but I have some ideas, all hilarious:
+ Possible definitions:
+ cousins far enough apart where fornication is socially acceptable (kissing is a euphemism) cousins far enough apart where fornication is not socially acceptable but kissing is (kissing is not a euphemism) two people who haven&amp;rsquo;t spoken since the awkward family reunion when they were both 15 (she had a different last name!</description>
+    </item>
+    
+    <item>
+      <title>Postgres Hangups</title>
+      <link>https://ntbloom.github.io/bloomblag/posts/postgres-hangups/</link>
+      <pubDate>Sun, 10 May 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://ntbloom.github.io/bloomblag/posts/postgres-hangups/</guid>
+      <description>Postgresql is amazing. Like, I want to go back in time and give the person (people? had to have been people, right?) who wrote it a hug. I started my software engineering journey as an excel monkey, and after cutting my teeth on vlookup hell, I was blown away by the power, simplicity, and safety guaranteed by a full-fledged database engine.
+ Microsoft Excel is the world&amp;rsquo;s greatest GUI-based non-transactional relational database with no type safety, user permissions layer, or logging.</description>
+    </item>
+    
+    <item>
+      <title>Does Hello World Count in Markdown?</title>
+      <link>https://ntbloom.github.io/bloomblag/posts/hello-world-in-markdown/</link>
+      <pubDate>Tue, 14 Apr 2020 00:00:00 +0000</pubDate>
+      
+      <guid>https://ntbloom.github.io/bloomblag/posts/hello-world-in-markdown/</guid>
+      <description>Hello World is one of my favorite arcane traditions in the world of software engineering. While it represents a seemingly simple task &amp;ndash; can you print a sentence on the screen? &amp;ndash; it symbolizes the power of software to do amazing things.
+Unlike its ugly cousins foo, bar, and baz, Hello World is a much kinder friend who invites you to show off your newfound skills to whoever out there who might be listening.</description>
+    </item>
+    
+  </channel>
+</rss>
