@@ -1,7 +1,9 @@
-baseURL = "http://example.org/"
-languageCode = "en-us"
+baseURL = "https://ntbloom.github.com/bloomblag"
+languageCode = "en-us
 title = "Bloomblag"
 theme = "ananke"
+
+publishDir = "docs"
 
 MetaDataFormat = "yaml"
 DefaultContentLanguage = "en"
