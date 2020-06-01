@@ -142,8 +142,7 @@ it the first 5 times:
 So we have an obvious winner in `head`, which makes sense since of all the tools in the
 shed, `head` is the only one whose primary job is to print n-lines of text starting at
 the beginning of the file. The huge gap between the `cat` command and the rest also
-makes sense, since only `cat` reads the file in its entirety before trying to find the
-first line.
+makes sense, since you're doing a whole lot of unnecessary work.
 
 It's pretty clear at this point that at least in terms of this particular task, `head`
 is a close cousin of `sed` and `awk` who are also close cousins of `grep` and `cut`.
