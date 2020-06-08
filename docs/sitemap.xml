@@ -3,54 +3,54 @@
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/</loc>
+    <loc>https://www.bloomblag.com/</loc>
     <lastmod>2020-05-14T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/posts/</loc>
+    <loc>https://www.bloomblag.com/posts/</loc>
     <lastmod>2020-05-14T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/posts/kissing-cousins/</loc>
+    <loc>https://www.bloomblag.com/posts/kissing-cousins/</loc>
     <lastmod>2020-05-14T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/posts/postgres-hangups/</loc>
+    <loc>https://www.bloomblag.com/posts/postgres-hangups/</loc>
     <lastmod>2020-05-10T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/posts/hello-world-in-markdown/</loc>
+    <loc>https://www.bloomblag.com/posts/hello-world-in-markdown/</loc>
     <lastmod>2020-04-14T00:00:00+00:00</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/about/</loc>
+    <loc>https://www.bloomblag.com/about/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/categories/</loc>
+    <loc>https://www.bloomblag.com/categories/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
   
   <url>
-    <loc>https://ntbloom.github.io/bloomblag/tags/</loc>
+    <loc>https://www.bloomblag.com/tags/</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>
   </url>
