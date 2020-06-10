@@ -6,15 +6,15 @@
     <description>Recent content in Posts on Bloomblag</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 08 Jun 2020 00:00:00 +0000</lastBuildDate>
+    <lastBuildDate>Wed, 10 Jun 2020 00:00:00 +0000</lastBuildDate>
     
 	<atom:link href="https://www.bloomblag.com/posts/index.xml" rel="self" type="application/rss+xml" />
     
     
     <item>
-      <title>What if we used npm as a Python runner?</title>
+      <title>What If We Used npm as a Python Runner?</title>
       <link>https://www.bloomblag.com/posts/scripting-python-with-npm/</link>
-      <pubDate>Mon, 08 Jun 2020 00:00:00 +0000</pubDate>
+      <pubDate>Wed, 10 Jun 2020 00:00:00 +0000</pubDate>
       
       <guid>https://www.bloomblag.com/posts/scripting-python-with-npm/</guid>
       <description>Python is an amazing language and its interpreted nature makes for super easy development workflows. Without the need for a compilation step or complicated builds, running your code can be as simple as running python app.py in your project&amp;rsquo;s root directory.

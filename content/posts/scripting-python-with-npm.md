@@ -1,6 +1,6 @@
 ---
-title: "What if we used npm as a Python runner?"
-date: 2020-06-08
+title: "What If We Used npm as a Python Runner?"
+date: 2020-06-10
 author: ntbloom
 draft: true
 ---
@@ -178,5 +178,5 @@ fine because all of the flags are already written down in your handy `package.js
 file even if you won't call on it directly.
 
 So will I be using this on a daily basis? I don't know, probably not. But it's cool to
-know that it's there. And it can't be any more of a hack than all of the left-pad
-cousins holding up the internet.
+know that it's there. And it can't be any more fragile than all of the left-pad cousins
+holding up the internet.
