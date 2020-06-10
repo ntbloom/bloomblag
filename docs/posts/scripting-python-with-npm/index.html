@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    
+    <title>What if we used npm as a Python runner? | Bloomblag</title>
+    <meta name="viewport" content="width=device-width,minimum-scale=1">
+    <meta name="generator" content="Hugo 0.69.0" />
+    
+    
+      <META NAME="ROBOTS" CONTENT="INDEX, FOLLOW">
+    
+
+    
+    
+      <link href="/dist/css/app.1cb140d8ba31d5b2f1114537dd04802a.css" rel="stylesheet">
+    
+
+    
+      <link rel="stylesheet" href="/css/overrides.css">
+    
+    
+    
+      
+    
+
+    
+    
+    <meta property="og:title" content="What if we used npm as a Python runner?" />
+<meta property="og:description" content="Python is an amazing language and its interpreted nature makes for super easy development workflows. Without the need for a compilation step or complicated builds, running your code can be as simple as running python app.py in your project&rsquo;s root directory.
+However, like every problem that is infinitely more complicated than that blog post you read last week, it&rsquo;s usually not a simple as that. You&rsquo;re probably using a virtual environment." />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="https://www.bloomblag.com/posts/scripting-python-with-npm/" />
+<meta property="article:published_time" content="2020-06-08T00:00:00+00:00" />
+<meta property="article:modified_time" content="2020-06-08T00:00:00+00:00" />
+<meta itemprop="name" content="What if we used npm as a Python runner?">
+<meta itemprop="description" content="Python is an amazing language and its interpreted nature makes for super easy development workflows. Without the need for a compilation step or complicated builds, running your code can be as simple as running python app.py in your project&rsquo;s root directory.
+However, like every problem that is infinitely more complicated than that blog post you read last week, it&rsquo;s usually not a simple as that. You&rsquo;re probably using a virtual environment.">
+<meta itemprop="datePublished" content="2020-06-08T00:00:00&#43;00:00" />
+<meta itemprop="dateModified" content="2020-06-08T00:00:00&#43;00:00" />
+<meta itemprop="wordCount" content="1074">
+
+
+
+<meta itemprop="keywords" content="" /><meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="What if we used npm as a Python runner?"/>
+<meta name="twitter:description" content="Python is an amazing language and its interpreted nature makes for super easy development workflows. Without the need for a compilation step or complicated builds, running your code can be as simple as running python app.py in your project&rsquo;s root directory.
+However, like every problem that is infinitely more complicated than that blog post you read last week, it&rsquo;s usually not a simple as that. You&rsquo;re probably using a virtual environment."/>
+
+      
+    
+  </head>
+
+  <body class="ma0 sans-serif bg-near-white production">
+
+    
+   
+  
+
+  <header>
+    <div class="bg-gray">
+      <nav class="pv3 ph3 ph4-ns" role="navigation">
+  <div class="flex-l justify-between items-center center">
+    <a href="https://www.bloomblag.com" class="f3 fw2 hover-white no-underline white-90 dib">
+      Bloomblag 
+    </a>
+    <div class="flex-l items-center">
+      
+
+      
+        <ul class="pl0 mr3">
+          
+          <li class="list f5 f4-ns fw4 dib pr3">
+            <a class="hover-white no-underline white-90" href="/about/" title="About page">
+              About
+            </a>
+          </li>
+          
+          <li class="list f5 f4-ns fw4 dib pr3">
+            <a class="hover-white no-underline white-90" href="/posts/" title="Posts page">
+              Posts
+            </a>
+          </li>
+          
+        </ul>
+      
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    </div>
+  </div>
+</nav>
+
+    </div>
+  </header>
+
+
+
+    <main class="pb7" role="main">
+      
+  
+  <article class="flex-l flex-wrap justify-between mw8 center ph3">
+    <header class="mt4 w-100">
+      <aside class="instapaper_ignoref b helvetica tracked">
+          
+        POSTS
+      </aside>
+      
+
+
+
+
+  <div id="sharing" class="mt3">
+
+    
+    <a href="https://www.facebook.com/sharer.php?u=https://www.bloomblag.com/posts/scripting-python-with-npm/" class="facebook no-underline" aria-label="share on Facebook">
+      <svg height="32px"  style="enable-background:new 0 0 67 67;" version="1.1" viewBox="0 0 67 67" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M28.765,50.32h6.744V33.998h4.499l0.596-5.624h-5.095  l0.007-2.816c0-1.466,0.14-2.253,2.244-2.253h2.812V17.68h-4.5c-5.405,0-7.307,2.729-7.307,7.317v3.377h-3.369v5.625h3.369V50.32z   M33,64C16.432,64,3,50.569,3,34S16.432,4,33,4s30,13.431,30,30S49.568,64,33,64z" style="fill-rule:evenodd;clip-rule:evenodd;"/></svg>
+
+    </a>
+
+    
+    
+    <a href="https://twitter.com/share?url=https://www.bloomblag.com/posts/scripting-python-with-npm/&amp;text=What%20if%20we%20used%20npm%20as%20a%20Python%20runner?" class="twitter no-underline" aria-label="share on Twitter">
+      <svg height="32px"  style="enable-background:new 0 0 67 67;" version="1.1" viewBox="0 0 67 67" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><path d="M37.167,22.283c-2.619,0.953-4.274,3.411-4.086,6.101  l0.063,1.038l-1.048-0.127c-3.813-0.487-7.145-2.139-9.974-4.915l-1.383-1.377l-0.356,1.017c-0.754,2.267-0.272,4.661,1.299,6.271  c0.838,0.89,0.649,1.017-0.796,0.487c-0.503-0.169-0.943-0.296-0.985-0.233c-0.146,0.149,0.356,2.076,0.754,2.839  c0.545,1.06,1.655,2.097,2.871,2.712l1.027,0.487l-1.215,0.021c-1.173,0-1.215,0.021-1.089,0.467  c0.419,1.377,2.074,2.839,3.918,3.475l1.299,0.444l-1.131,0.678c-1.676,0.976-3.646,1.526-5.616,1.568  C19.775,43.256,19,43.341,19,43.405c0,0.211,2.557,1.397,4.044,1.864c4.463,1.377,9.765,0.783,13.746-1.568  c2.829-1.673,5.657-5,6.978-8.221c0.713-1.716,1.425-4.851,1.425-6.354c0-0.975,0.063-1.102,1.236-2.267  c0.692-0.678,1.341-1.419,1.467-1.631c0.21-0.403,0.188-0.403-0.88-0.043c-1.781,0.636-2.033,0.551-1.152-0.402  c0.649-0.678,1.425-1.907,1.425-2.267c0-0.063-0.314,0.042-0.671,0.233c-0.377,0.212-1.215,0.53-1.844,0.72l-1.131,0.361l-1.027-0.7  c-0.566-0.381-1.361-0.805-1.781-0.932C39.766,21.902,38.131,21.944,37.167,22.283z M33,64C16.432,64,3,50.569,3,34S16.432,4,33,4  s30,13.431,30,30S49.568,64,33,64z" style="fill-rule:evenodd;clip-rule:evenodd;fill:;"/></svg>
+
+    </a>
+
+    
+    <a href="https://www.linkedin.com/shareArticle?mini=true&amp;url=https://www.bloomblag.com/posts/scripting-python-with-npm/&amp;title=What%20if%20we%20used%20npm%20as%20a%20Python%20runner?" class="linkedin no-underline" aria-label="share on LinkedIn">
+      <svg  height="32px"  style="enable-background:new 0 0 65 65;" version="1.1" viewBox="0 0 65 65" width="32px" xml:space="preserve" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <path d="M50.837,48.137V36.425c0-6.275-3.35-9.195-7.816-9.195  c-3.604,0-5.219,1.983-6.119,3.374V27.71h-6.79c0.09,1.917,0,20.427,0,20.427h6.79V36.729c0-0.609,0.044-1.219,0.224-1.655  c0.49-1.22,1.607-2.483,3.482-2.483c2.458,0,3.44,1.873,3.44,4.618v10.929H50.837z M22.959,24.922c2.367,0,3.842-1.57,3.842-3.531  c-0.044-2.003-1.475-3.528-3.797-3.528s-3.841,1.524-3.841,3.528c0,1.961,1.474,3.531,3.753,3.531H22.959z M34,64  C17.432,64,4,50.568,4,34C4,17.431,17.432,4,34,4s30,13.431,30,30C64,50.568,50.568,64,34,64z M26.354,48.137V27.71h-6.789v20.427  H26.354z" style="fill-rule:evenodd;clip-rule:evenodd;fill:;"/>
+</svg>
+
+    </a>
+  </div>
+
+
+      <h1 class="f1 athelas mt3 mb1">What if we used npm as a Python runner?</h1>
+      
+      <p class="tracked">
+          By <strong>
+          
+              ntbloom
+          
+          </strong>
+      </p>
+      
+      
+      <time class="f6 mv4 dib tracked" datetime="2020-06-08T00:00:00Z">June 8, 2020</time>
+
+      
+      
+        <span class="f6 mv4 dib tracked"> - 6 minutes read</span>
+        <span class="f6 mv4 dib tracked"> - 1074 words</span>
+      
+    </header>
+    <div class="nested-copy-line-height lh-copy sans-serif bg-near-white f4 nested-links nested-img mid-gray pr4-l w-two-thirds-l"><p>Python is an amazing language and its interpreted nature makes for super easy
+development workflows. Without the need for a compilation step or complicated builds,
+running your code can be as simple as running <code>python app.py</code> in your project&rsquo;s root
+directory.</p>
+<p>However, like every problem that is infinitely more complicated than that blog post you
+read last week, it&rsquo;s usually not a simple as that. You&rsquo;re probably using a virtual
+environment. Maybe (hopefully?) you&rsquo;re practicing TDD and your code is largely run
+using a tool like pytest that has a million flags that you have to keep straight:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ source venv/bin/activate
+<span style="color:#f92672">(</span>venv<span style="color:#f92672">)</span> $ python3 -m pytest tests/good_tests/ -x -ff -m <span style="color:#e6db74">&#34;not slow&#34;</span>
+<span style="color:#f92672">(</span>venv<span style="color:#f92672">)</span> $ python3 -m pytest tests/shitty_tests/ --runxfail
+<span style="color:#f92672">(</span>venv<span style="color:#f92672">)</span> $ python3 -m pytest --cov<span style="color:#f92672">=</span>project tests/ --runxfail
+<span style="color:#f92672">(</span>venv<span style="color:#f92672">)</span> $ deactivate
+$
+</code></pre></div><p>None of these complications are deal-breakers but together they make for maybe 5 or 10
+different variations of <code>run code</code> that would be nice to keep track of in a meaningful,
+shareable way.</p>
+<p>Of course you get all of this for free with a good IDE like Pycharm, but what about the
+poor Linux user who refuses to adopt modern development practices and insists that vim
+and tmux is all the IDE anybody ever needs?</p>
+<p>There has to be a better way to keep all of this straight. What if there were a tool
+that many developers already have installed on their machines that was capable of
+mapping prickly one liners to easily remembered reusable and shareable commands?</p>
+<p>Good news, hackers: npm is here to save the day.</p>
+<h3 id="bring-out-the-beast">Bring out the beast</h3>
+<p>I won&rsquo;t lie; npm is kind of a nightmare. Between the number of dependencies you have no
+idea what the hell they do and innumerable
+<a href="https://www.davidhaney.io/npm-left-pad-have-we-forgotten-how-to-program/" title="NPM &amp; left-pad: Have We Forgotten How To Program?">left-pad</a>
+lookalikes in the public repos, staying on top of a complicated production javascript
+installation &ndash; at least in terms of dependency management &ndash; can be a treacherous
+chore. However, as a script runner, npm in my opinion can&rsquo;t be beat. Don&rsquo;t believe me?
+Run these three commands from the root of a non-javascript project and see how quickly
+you can get running with reusable bash one-liners:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-bash" data-lang="bash">$ echo <span style="color:#e6db74">&#34;loglevel=silent&#34;</span> &gt; .npmrc
+$ echo <span style="color:#e6db74">&#34;{\&#34;scripts\&#34;:{\&#34;hello\&#34;:\&#34;echo &#39;Hello, World!&#39;\&#34;}}&#34;</span> &gt; package.json
+$ npm run hello
+<span style="color:#75715e">#&gt; Hello, World!</span>
+</code></pre></div><p>What&rsquo;s happening of course is that you just wrote the world&rsquo;s simplest javascript
+application (tentative clickbait blog post title: <em>&ldquo;10 Reasons To Eliminate All
+Javascript From Your Next Javascript App&rdquo;)</em> and are now using it to replace bash as
+your main command-line runner.</p>
+<p>So how does this work for Python? Well, the beauty of npm is that it executes scripts
+from the same directory where it finds a package.json file, so no matter where the
+calling directory of an npm command, you don&rsquo;t have to fuss around with keeping
+relative references straight. On top of that, since you have access to the same amazing
+tools that your command-line has, you aren&rsquo;t limited in what you can accomplish. Want
+to be done with activating and deactivating virtual environments? Just invoke the
+virtual interpreter directly:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#f92672">&#34;scripts&#34;</span>: {
+    <span style="color:#f92672">&#34;py-app&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/python3 app.py&#34;</span>
+  }
+}
+</code></pre></div><p>With this in your <code>package.json</code> you can now run your app from any location in the
+project directory by calling <code>npm run py-app</code> without having to activate or deactivate
+the virtual environment. You can even append command-line flags to the end of your
+commands to mimick as if you were calling directly from the command line.
+<code>npm run py-app arg1 arg2 arg3</code> in this case is equivalent to
+<code>python3 app.py arg1 arg2 arg3</code> but with the convenience of being able to store base
+configurations in source control.</p>
+<h3 id="some-practical-examples">Some practical examples?</h3>
+<p>This is more of a proof of concept than a tried-and-true method, but here are some
+other interesting hacks. Here are a few that I just thought of, but I&rsquo;m sure there are
+dozens more.</p>
+<hr>
+<p><strong>Leave yourself a comment:</strong></p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#f92672">&#34;py-app&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/python3 app.py # runs the main app&#34;</span>,
+  <span style="color:#f92672">&#34;python&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/python3 # get yourself a REPL&#34;</span>
+}
+</code></pre></div><p>Note that this prevents you from adding additional args at the end of the command since
+the <code>#</code> is greedy in this case. In my opinion this is the biggest drawback to this
+pattern as we&rsquo;re now forced to choose between extensibility and documentation. Of
+course as with most problems in the software world, we can blame this almost
+exclusively on javascript for having institutionally prevented us from writing comments
+in configuration files.</p>
+<hr>
+<p><strong>Manage dependencies with pip:</strong></p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#f92672">&#34;pip&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/pip # avoid installing on system python&#34;</span>,
+  <span style="color:#f92672">&#34;pip-save&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/pip freeze &gt; requirements.txt&#34;</span>,
+  <span style="color:#f92672">&#34;make-venv&#34;</span>: <span style="color:#e6db74">&#34;python3 -m venv venv &amp;&amp; venv/bin/pip install -r requirements.txt&#34;</span>
+}
+</code></pre></div><p>Potential commands include <code>npm run pip install requests</code> or <code>npm run pip-save</code>.</p>
+<hr>
+<p><strong>Specify different pytest configurations:</strong></p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#f92672">&#34;pytest&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/pytest # extensible template&#34;</span>,
+  <span style="color:#f92672">&#34;pytest-all&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/pytest --cov=myproject tests/ --runxfail&#34;</span>,
+  <span style="color:#f92672">&#34;pytest-api&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/pytest tests/api --maxfail=1 --failed-first&#34;</span>,
+  <span style="color:#f92672">&#34;pytest-database&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/pytest tests/database --maxfail=1 --failed-first&#34;</span>,
+  <span style="color:#f92672">&#34;pytest-ff&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/pytest --maxfail=1 --failed-first&#34;</span>
+}
+</code></pre></div><p>Invoke pytest manually with <code>npm run pytest tests/ --ff -x</code> or use a preconfigured
+option like <code>npm run pytest-all</code>.</p>
+<hr>
+<p><strong>Run linting or autoformatting tools:</strong></p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#f92672">&#34;lint&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/mypy --config-file mypy.ini src/&#34;</span>,
+  <span style="color:#f92672">&#34;autoformat&#34;</span>: <span style="color:#e6db74">&#34;venv/bin/black -l 80 .&#34;</span>
+}
+</code></pre></div><hr>
+<p>You can even expand the pattern to automate git workflows if you like living
+dangerously:</p>
+<div class="highlight"><pre style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4"><code class="language-json" data-lang="json">{
+  <span style="color:#f92672">&#34;commit&#34;</span>: <span style="color:#e6db74">&#34;git add . &amp;&amp; git commit -m&#34;</span>,
+  <span style="color:#f92672">&#34;yolo-commit&#34;</span>: <span style="color:#e6db74">&#34;git add . &amp;&amp; git commit -m &#39;runs on my machine...&#39; &amp;&amp; git push --force origin master&#34;</span>
+}
+</code></pre></div><h3 id="a-warning-before-jumping-in">A warning before jumping in</h3>
+<p>Let&rsquo;s be abundantly clear: this is a <strong>hack</strong>. This will not work on a remote server or
+in a container where nodejs is not a dependency, for example. It is also not as robust
+and configurable as <em>real</em> build tools like make, which is probably a way better tool
+for the job and you (I?) should probably learn it.</p>
+<p>Nevertheless, there is a beautiful elegance in this sort of design pattern where there
+is literally nothing lost by having a single json file in a project directory. If node
+isn&rsquo;t on a particular system, run the commands another way. Worst case scenario you
+have to manually type <em>one line</em> to get your program or tests to run, which is also
+fine because all of the flags are already written down in your handy <code>package.json</code>
+file even if you won&rsquo;t call on it directly.</p>
+<p>So will I be using this on a daily basis? I don&rsquo;t know, probably not. But it&rsquo;s cool to
+know that it&rsquo;s there. And it can&rsquo;t be any more of a hack than all of the left-pad
+cousins holding up the internet.</p>
+<ul class="pa0">
+  
+</ul>
+<div class="mt6 instapaper_ignoref">
+      
+      
+      </div>
+    </div>
+
+    <aside class="w-30-l mt6-l">
+
+
+
+
+</aside>
+
+  </article>
+
+    </main>
+    <footer class="bg-gray bottom-0 w-100 pa3" role="contentinfo">
+  <div class="flex justify-between">
+  <a class="f4 fw4 hover-white no-underline white-70 dn dib-ns pv2 ph3" href="https://www.bloomblag.com" >
+    &copy;  Bloomblag 2020 
+  </a>
+    <div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</div>
+  </div>
+</footer>
+
+    
+
+  <script src="/dist/js/app.3fc0f988d21662902933.js"></script>
+
+
+  </body>
+</html>
