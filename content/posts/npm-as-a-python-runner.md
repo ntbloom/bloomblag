@@ -87,7 +87,7 @@ configurations in source control.
 
 ### Some practical examples?
 
-This is more of a proof of concept than a tried-and-true method, but here are some
+This is more of a proof of concept than a tried-and-true method, but there are some
 other interesting hacks. Here are a few that I just thought of, but I'm sure there are
 dozens more.
 
@@ -97,7 +97,7 @@ dozens more.
 
 ```json
 {
-  "py-app": "venv/bin/python3 app.py # runs the main app",
+  "py-app": "venv/bin/python3 app.py",
   "python": "venv/bin/python3 # get yourself a REPL"
 }
 ```
