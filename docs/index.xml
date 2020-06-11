@@ -13,10 +13,10 @@
     
     <item>
       <title>What If We Used npm as a Python Runner?</title>
-      <link>https://www.bloomblag.com/posts/scripting-python-with-npm/</link>
+      <link>https://www.bloomblag.com/posts/npm-as-a-python-runner/</link>
       <pubDate>Wed, 10 Jun 2020 00:00:00 +0000</pubDate>
       
-      <guid>https://www.bloomblag.com/posts/scripting-python-with-npm/</guid>
+      <guid>https://www.bloomblag.com/posts/npm-as-a-python-runner/</guid>
       <description>Python is an amazing language and its interpreted nature makes for super easy development workflows. Without the need for a compilation step or complicated builds, running your code can be as simple as running python app.py in your project&amp;rsquo;s root directory.
 However, like every problem that is infinitely more complicated than that blog post you read last week, it&amp;rsquo;s usually not a simple as that. You&amp;rsquo;re probably using a virtual environment.</description>
     </item>

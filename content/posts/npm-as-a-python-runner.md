@@ -117,7 +117,7 @@ in configuration files.
 {
   "pip": "venv/bin/pip # avoid installing on system python",
   "pip-save": "venv/bin/pip freeze > requirements.txt",
-  "make-venv": "python3 -m venv venv && venv/bin/pip install -r requirements.txt"
+  "make-venv": "rm -rf venv && python3 -m venv venv && venv/bin/pip install -r requirements.txt"
 }
 ```
 
