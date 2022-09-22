@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Tags on bloomblag</title>
+    <link>http://bloomblag.com/tags/</link>
+    <description>Recent content in Tags on bloomblag</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 12 Sep 2022 22:01:43 -0400</lastBuildDate><atom:link href="http://bloomblag.com/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>python</title>
+      <link>http://bloomblag.com/tags/python/</link>
+      <pubDate>Mon, 12 Sep 2022 22:01:43 -0400</pubDate>
+      
+      <guid>http://bloomblag.com/tags/python/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>software</title>
+      <link>http://bloomblag.com/tags/software/</link>
+      <pubDate>Mon, 12 Sep 2022 22:01:43 -0400</pubDate>
+      
+      <guid>http://bloomblag.com/tags/software/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>testing</title>
+      <link>http://bloomblag.com/tags/testing/</link>
+      <pubDate>Mon, 12 Sep 2022 22:01:43 -0400</pubDate>
+      
+      <guid>http://bloomblag.com/tags/testing/</guid>
+      <description></description>
+    </item>
+    
+  </channel>
+</rss>

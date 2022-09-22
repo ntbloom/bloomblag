@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en" dir="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>A deep dive into the Pytest metafunc fixture | bloomblag</title>
+<meta name="keywords" content="python, testing, software">
+<meta name="description" content="Why write one test when you could write 100?">
+<meta name="author" content="">
+<link rel="canonical" href="http://bloomblag.com/posts/pytest-metaprogramming/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.bc1149f4a72aa4858d3a9f71462f75e5884ffe8073ea9d6d5761d5663d651e20.css" integrity="sha256-vBFJ9KcqpIWNOp9xRi915YhP/oBz6p1tV2HVZj1lHiA=" rel="preload stylesheet" as="style">
+<script defer crossorigin="anonymous" src="/assets/js/highlight.f413e19d0714851f6474e7ee9632408e58ac146fbdbe62747134bea2fa3415e0.js" integrity="sha256-9BPhnQcUhR9kdOfuljJAjlisFG&#43;9vmJ0cTS&#43;ovo0FeA="
+    onload="hljs.initHighlightingOnLoad();"></script>
+<link rel="icon" href="http://bloomblag.com/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="http://bloomblag.com/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="http://bloomblag.com/favicon-32x32.png">
+<link rel="apple-touch-icon" href="http://bloomblag.com/apple-touch-icon.png">
+<link rel="mask-icon" href="http://bloomblag.com/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --hljs-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-track {
+                background: 0 0;
+            }
+
+            .list:not(.dark)::-webkit-scrollbar-thumb {
+                border-color: var(--theme);
+            }
+        }
+
+    </style>
+</noscript><meta property="og:title" content="A deep dive into the Pytest metafunc fixture" />
+<meta property="og:description" content="Why write one test when you could write 100?" />
+<meta property="og:type" content="article" />
+<meta property="og:url" content="http://bloomblag.com/posts/pytest-metaprogramming/" /><meta property="article:section" content="posts" />
+<meta property="article:published_time" content="2022-09-12T22:01:43-04:00" />
+<meta property="article:modified_time" content="2022-09-12T22:01:43-04:00" />
+
+<meta name="twitter:card" content="summary"/>
+<meta name="twitter:title" content="A deep dive into the Pytest metafunc fixture"/>
+<meta name="twitter:description" content="Why write one test when you could write 100?"/>
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "Posts",
+      "item": "http://bloomblag.com/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "A deep dive into the Pytest metafunc fixture",
+      "item": "http://bloomblag.com/posts/pytest-metaprogramming/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "A deep dive into the Pytest metafunc fixture",
+  "name": "A deep dive into the Pytest metafunc fixture",
+  "description": "Why write one test when you could write 100?",
+  "keywords": [
+    "python", "testing", "software"
+  ],
+  "articleBody": "One of the most useful features of pytest is its ability to generate test cases with the parametrize keyword. Like table tests in other languages and frameworks, sometimes it’s really useful to have the same test run over multiple test cases to make sure that you’re doing things correctly.\nfrom typing import Any import pytest def combine(*stuff: list[Any]) -\u003e Any: \"\"\"Combine the things!\"\"\" return super_complicated_algorithm(*stuff) @pytest.mark.parametrize( \"args,exp_result\", [ (param([1, 2], 3,id=\"ints\")), (param([1, 2, 3], 6,id=\"more ints\")), (param([0.1, 0.2, 0.3], 0.6, id=\"floats\")), (param([i for i in range(10000)], 49995000, id=\"bunch of ints\")), (param([\"hello\", \" \", \"world\", \"!\"], \"hello world!\",id=\"strings\")), ], ) def test_combine_stuff(args: list[Any], exp_result: Any) -\u003e None: actual = combine(*args) match exp_result: case float(): buffer = 0.0000000001 assert abs(actual - exp_result) \u003c= buffer case _: assert actual == exp_result This gives us some really nice output and we can rest easy knowing that we succesfully created 5 different test cases:\n$ poetry run pytest ... collected 5 items test.py::test_combine_stuff[ints] PASSED test.py::test_combine_stuff[more ints] PASSED test.py::test_combine_stuff[floats] PASSED test.py::test_combine_stuff[bunch of ints] PASSED test.py::test_combine_stuff[strings] PASSED =========== 5 passed in 0.01s ==================== Let’s take a closer look at what’s going on here…\nThe pytest Metafunc object First we should break it down to an incredibly simple example. We’ll create a test with 10 cases that does nothing but create a simple test case for 10 different integers:\nimport pytest numbers = [i for i in range(10)] @pytest.mark.parametrize(\"number\", numbers, ids=numbers) def test_show_me_a_number(number: int) -\u003e None: assert type(number) is int, \"what did you expect?\" The output here is stupidly simple:\n$ poetry run pytest ... collected 10 items test.py::test_show_me_a_number[0] PASSED test.py::test_show_me_a_number[1] PASSED test.py::test_show_me_a_number[2] PASSED test.py::test_show_me_a_number[3] PASSED test.py::test_show_me_a_number[4] PASSED test.py::test_show_me_a_number[5] PASSED test.py::test_show_me_a_number[6] PASSED test.py::test_show_me_a_number[7] PASSED test.py::test_show_me_a_number[8] PASSED test.py::test_show_me_a_number[9] PASSED ========= 10 passed in 0.01s =========== How might we recreate this pattern without using the decorator? Enter the Metafunc object baked into pytest. Ditching the generator for a function definition makes the code be a little bit uglier, but as we start to peek under the hood, we start seeing some of the magic that make pytest a super powerful test driver.\nimport pytest def pytest_generate_tests(metafunc: pytest.Metafunc): marker = \"number\" if marker in metafunc.fixturenames: numbers = [i for i in range(10)] metafunc.parametrize(marker, numbers, ids=numbers) def test_show_me_a_number(number: int) -\u003e None: assert type(number) is int, \"what did you expect?\" And the output looks exactly the same!\n$ poetry run pytest ... collected 10 tems test.py::test_show_me_a_number[0] PASSED test.py::test_show_me_a_number[1] PASSED test.py::test_show_me_a_number[2] PASSED test.py::test_show_me_a_number[3] PASSED test.py::test_show_me_a_number[4] PASSED test.py::test_show_me_a_number[5] PASSED test.py::test_show_me_a_number[6] PASSED test.py::test_show_me_a_number[7] PASSED test.py::test_show_me_a_number[8] PASSED test.py::test_show_me_a_number[9] PASSED ========== 10 passed in 0.01s ========== What’s happening here is that python takes an iterable, in this case, the numbers list comprehension, and writes a unique test case for each item as it iterates through. We specify a marker string which signifies to parametrize any test method that uses that string as an argument.\nIn addition, we pass another iterable (in this case the same as the first) for ids to keep track of individual test case. If we replaced ids=numbers with ids=[f\"#{n}\" for n in numbers], the test ids would be test_show_me_a_number[#0], test_show_me_a_number[#1], test_show_me_a_number[#2], etc.\nNow that we’re no longer limited to the decorator function, let’s start getting a little more creative. For example, what if instead of parametrizing static values, we start using this functionality to dynamically generate tests based on random inputs?\nFor example, we could generate tests based on the time of day, which is definitely a good idea and something we should try:\nfrom datetime import datetime import pytest def pytest_generate_tests(metafunc: pytest.Metafunc): marker = \"number\" if marker in metafunc.fixturenames: numbers = [i for i in range(5) if datetime.now().microsecond % 2 == 0] metafunc.parametrize(marker, numbers, ids=numbers) def test_show_me_a_number(number: int) -\u003e None: assert type(number) is int, \"what did you expect?\" Let’s run this one a couple of times.\n$ poetry run pytest ... collected 3 items test.py::test_show_me_a_number[0] PASSED test.py::test_show_me_a_number[1] PASSED test.py::test_show_me_a_number[2] PASSED ========== 3 passed in 0.01s =========== And again?\n$ poetry run pytest ... collected 2 items test.py::test_show_me_a_number[3] PASSED test.py::test_show_me_a_number[4] PASSED ========== 2 passed in 0.01s =========== How about one more time?\n$ poetry run pytest ... collected 3 items test.py::test_show_me_a_number[0] PASSED test.py::test_show_me_a_number[2] PASSED test.py::test_show_me_a_number[3] PASSED ========== 3 passed in 0.01s =========== Okay, this is weird but we’re starting to see the underlying power. With this pattern we now have the ability to generate any test we want, determined by arbitrary inputs. While the above scenario is pretty useless from a software engineering perspective, there are some very useful opportunities for this sort of pattern in production.\nGenerate tests by command-line input One fun application is that we can gather dynamic input from the command line and parametrize the test against multiple targets. Like let’s say you’re testing a web API that serves a semantically-versioned C++ binary built against multiple targets. Using metafunc we can retrieve the semver string from the command line and run the same test against the various platforms.\nThis one gets a little more complicated since we need to register our command-line flag in a conftest.py file, but the code is still pretty straightforward.\nHere’s the conftest.py command-line parser code:\n# conftest.py import pytest # needs to be in conftest so the parser picks it up before test collection def pytest_addoption(parser: pytest.Parser): parser.addoption( \"--semver\", action=\"store\", required=False, help=\"specify the semver\", ) # let's put this in conftest too while we're at it def pytest_generate_tests(metafunc: pytest.Metafunc): marker = \"semver\" platforms = [\"linux_x86_32\", \"linux_x86_64\", \"win32\", \"win64\", \"osx-aarch\"] if marker in metafunc.fixturenames: if version := metafunc.config.getoption(\"--semver\"): binaries = [f\"{version}-{platform}\" for platform in platforms] metafunc.parametrize(marker, binaries, ids=binaries) And the test itself:\nimport pytest from binary_getter import BinaryGetter def test_get_binary(semver: str) -\u003e None: assert BinaryGetter.get_binary(semver), f\"unable to download {semver}\" Using the --semver flag, we can now verify that we can download the same binary version on a bunch of different platforms:\n$ poetry run pytest --semver 3.3.7rc1 ... collected 5 items test.py::test_get_binary[3.3.7rc1-linux_x86_32] PASSED test.py::test_get_binary[3.3.7rc1-linux_x86_64] PASSED test.py::test_get_binary[3.3.7rc1-win32] PASSED test.py::test_get_binary[3.3.7rc1-win64] PASSED test.py::test_get_binary[3.3.7rc1-osx-aarch] PASSED ================ 5 passed in 0.01s ==================== $ poetry run pytest --semver 1.2.3 ... collected 5 items test.py::test_get_binary[1.2.3-linux_x86_32] PASSED test.py::test_get_binary[1.2.3-linux_x86_64] PASSED test.py::test_get_binary[1.2.3-win32] PASSED test.py::test_get_binary[1.2.3-win64] PASSED test.py::test_get_binary[1.2.3-osx-aarch] PASSED ================ 5 passed in 0.01s ==================== Using this pattern we can verify any release without needing to adjust the source code! We could even adjust the command line flags to accept multiple arguments or additional platforms to start really generating a lot of tests.\nThis sort of pattern is super useful if the person running the test isn’t necessarily the developer who wrote or maintains the test suite, or for CI jobs where the output of a build job gets piped immediately into a test suite without needing to touch source or otherwise intervene manually.\nParametrize a fixture for cleaner, more atomic test definitions One of the most obvious and simplest applications for metafunc is to use it to process parametrized arguments to keep tests atomic and reusable. We’ve all written an e2e test that takes the “kitchen sink” approach that throws all of the test cases in a single function:\nfrom pathlib import Path import pytest from utility_library import preprocess, validate from main_library import FileProcessor, FilePublisher, FileRetriever from reports import Datafile, Report, Redacted from company_secrets import disallowed_words @pytest.mark.parametrize( \"raw_file\", [ \"/path/to/data1.json\", \"/path/to/data2.json\", \"/path/to/data3.json\", \"/path/to/data4.json\", \"/path/to/data5.json\", \"/path/to/data6.json\", ], ) def test_file_processor_and_publisher_and_retriever(raw_file: str): # set up some preconditions test_data = Path(raw_file) assert test_data.exists(), \"must provide valid test data file\" starting_point: Datafile = preprocess(test_data) assert validate(starting_point), \"data can't be validated\" fp = FileProcessor(starting_point) # verify protobuf functionality proto = fp.convert_to_protobuf() assert proto, \"unable to convert to protobuf\" # verify report-making capability report: Report = fp.make_report() assert report, \"unable to process the report\" assert report.passes_validation(), \"report is invalid\" redacted: Redacted = report.redacted() assert redacted, \"unable to redact the report\" for word in disallowed_words: assert word not in str(redacted), \"we leaked company secrets!\" # verify we can publish the report publisher = FilePublisher() assert publisher.publish(report), \"unable to publish report\" assert publisher.publish(redacted), \"unable to publish redacted report\" retriever = FileRetriever() retrieved_report = retriever.retrieve(report.name) assert retrieved_report == report, \"unable to download retrieved report\" retrieved_redacted = retriever.retrieve(redacted.name) assert retrieved_redacted == redacted, \"unable to download redacted report\" If you managed to even read the whole test, you would see that while this is probably a really great test that does all of the things it needs to, it’s both fragile and unextensible. What happens if you fail to publish the report, for example? Pytest skips the FileRetriever code and we’ll never know about any bugs there until the FilePublisher code gets fixed first.\nWithout knowledge of metafunc, the “simple” solution is to split the functions into separate methods and apply the parametrize decorator to each one. This helps avoid missing regressions in FileRetriever, but we can still do better.\nInstead, if we use metafunc in combination with other fixtures, we can DRY up our code and make it much easier to write new test cases as needed. In this case we may even want to split all of the fixtures into its own conftest to make the test cases even cleaner to look at:\n# conftest.py from pathlib import Path import pytest from utility_library import preprocess, validate from main_library import FileProcessor, FilePublisher, FileRetriever from reports import Datafile, Report, Redacted def pytest_generate_tests(metafunc: pytest.Metafunc): raw_files = [ \"/path/to/data1.json\", \"/path/to/data2.json\", \"/path/to/data3.json\", \"/path/to/data4.json\", \"/path/to/data5.json\", \"/path/to/data6.json\", ] # do pre-processing here test_data = [Path(raw_file) for raw_file in raw_files] datafiles: list[Datafile] = [] for td in test_data: assert td.exists(), \"must provide valid test data file\" datafile = preprocess(td) assert validate(datafile), \"data can't be validated\" datafiles.append(datafile) marker = (\"datafile\",) if marker in metafunc.fixturenames: metafunc.parametrize(marker, datafiles, ids=datafiles, scope=\"class\") @pytest.fixture(scope=\"class\") def file_processor(datafile: Datafile) -\u003e FileProcessor: return FileProcessor(datafile) @pytest.fixture(scope=\"class\") def report(file_processor: FileProcessor) -\u003e Report: return file_processor.make_report() @pytest.fixture(scope=\"class\") def redacted(report: Report) -\u003e Redacted: return report.redacted() @pytest.fixture(scope=\"class\") def publisher() -\u003e FilePublisher: return FilePublisher() @pytest.fixture(scope=\"class\") def retriever() -\u003e FileRetriever: return FileRetriever() Now, any test or fixture that uses the datafile fixture as an argument will be parametrized by whatever inputs we define in the conftest. Since the file_processor fixture calls datafile, it will get the parametrization treatment and get re-instantiated (and tested) for each test case. The same goes for report which calls file_processor, and by extension redacted which calls report. The final two fixtures publisher and retriever only get instantiated once because they aren’t involved in any of the parametrization.\nWe should take a minute to visit the scope=\"class\" argument we add to the metafunc.parametrize() call. Just like with regular fixtures, this means that while we can reinstantiate the fixtures for each item in datafiles, we don’t reinstantiate the object more than once per class. This essentially lets us reuse the same file descriptor over and over again for the entire test class to reduce file I/O and improve test speed. Of course we could name the scope whatever we wanted, and if we were concerned about side effects and leaking state, we would likely want to parametrize using scope=\"function\".\nNow that the conftest is complete, we can see a very clean and atomic test file. So clean in fact, we don’t even need to call import pytest since all of the test configuration has been pushed outside of the main test file.\n# test.py from main_library import FileProcessor, FilePublisher, FileRetriever from reports import Datafile, Report, Redacted from company_secrets import disallowed_words class TestFileProcessorAndPublisherAndRetriever: def test_protobuf_functionality(self, file_processor: FileProcessor): proto = file_processor.convert_to_protobuf() assert proto, \"unable to convert to protobuf\" def test_make_report(self, report: Report): assert report, \"unable to process the report\" assert report.passes_validation(), \"report is invalid\" def test_redacted(self, redacted: Redacted): assert redacted, \"unable to redact the report\" for word in disallowed_words: assert word not in str(redacted), \"we leaked company secrets!\" def test_publish_and_retrieve_report( self, publisher: FilePublisher, retriever: FileRetriever, report: Report ): retrieved_report = retriever.retrieve(report.name) assert publisher.publish(report), \"unable to publish report\" assert retrieved_report == report, \"unable to download retrieved report\" def test_publish_and_retrieve_redacted( self, publisher: FilePublisher, retriever: FileRetriever, redacted: Redacted ): assert publisher.publish(redacted), \"unable to publish redacted report\" retrieved_redacted = retriever.retrieve(redacted.name) assert retrieved_redacted == redacted, \"unable to download redacted report\" The beauty of this approach is that pretty much anybody can see what these tests are doing and what they are validating. If we want to write more tests or tweak the acceptance criteria, it’s very easy to do without breaking other functionality. And if we want to change the list of data input files to test against, we can simply adjust the items in the list inside our conftest file.\nLooking for more? We’re just starting to scratch the surface of Pytest functionality, but this is a good look at some of the more powerful applications for Pytest, and a reason that many people (like myself) use Python and Pytest to test targets that aren’t even written in Python. As an integration/e2e test framework for testing any API that Python can connect to, Pytest is unrivaled for extensibility and being able to quickly generate multiple tests using Python’s flexibility and robust metaprogramming support.\nWant more info about metafunc? Check out the source code yourself!\n",
+  "wordCount" : "2130",
+  "inLanguage": "en",
+  "datePublished": "2022-09-12T22:01:43-04:00",
+  "dateModified": "2022-09-12T22:01:43-04:00",
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "http://bloomblag.com/posts/pytest-metaprogramming/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "bloomblag",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "http://bloomblag.com/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="" id="top">
+<script>
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.body.classList.add('dark');
+    }
+
+</script>
+
+<header class="header">
+    <nav class="nav">
+        <div class="logo">
+            <a href="http://bloomblag.com/" accesskey="h" title="bloomblag (Alt + H)">bloomblag</a>
+            <div class="logo-switches">
+            </div>
+        </div>
+        <ul id="menu">
+            <li>
+                <a href="http://bloomblag.com/tags/" title="tags">
+                    <span>tags</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://bloomblag.com/posts/" title="posts">
+                    <span>posts</span>
+                </a>
+            </li>
+            <li>
+                <a href="http://bloomblag.com/about/" title="about">
+                    <span>about</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <div class="breadcrumbs"><a href="http://bloomblag.com/">Home</a>&nbsp;»&nbsp;<a href="http://bloomblag.com/posts/">Posts</a></div>
+    <h1 class="post-title">
+      A deep dive into the Pytest metafunc fixture
+    </h1>
+    <div class="post-description">
+      Why write one test when you could write 100?
+    </div>
+    <div class="post-meta"><span title='2022-09-12 22:01:43 -0400 EDT'>September 12, 2022</span>&nbsp;·&nbsp;10 min
+
+</div>
+  </header> 
+  <div class="post-content"><p>One of the most useful features of pytest is its ability to generate test cases
+with the <code>parametrize</code> keyword. Like table tests in other languages and
+frameworks, sometimes it&rsquo;s really useful to have the same test run over multiple
+test cases to make sure that you&rsquo;re doing things correctly.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#f92672">from</span> typing <span style="color:#f92672">import</span> Any
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">combine</span>(<span style="color:#f92672">*</span>stuff: list[Any]) <span style="color:#f92672">-&gt;</span> Any:
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;&#34;&#34;Combine the things!&#34;&#34;&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> super_complicated_algorithm(<span style="color:#f92672">*</span>stuff)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>mark<span style="color:#f92672">.</span>parametrize(
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;args,exp_result&#34;</span>,
+</span></span><span style="display:flex;"><span>    [
+</span></span><span style="display:flex;"><span>        (param([<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>], <span style="color:#ae81ff">3</span>,id<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;ints&#34;</span>)),
+</span></span><span style="display:flex;"><span>        (param([<span style="color:#ae81ff">1</span>, <span style="color:#ae81ff">2</span>, <span style="color:#ae81ff">3</span>], <span style="color:#ae81ff">6</span>,id<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;more ints&#34;</span>)),
+</span></span><span style="display:flex;"><span>        (param([<span style="color:#ae81ff">0.1</span>, <span style="color:#ae81ff">0.2</span>, <span style="color:#ae81ff">0.3</span>], <span style="color:#ae81ff">0.6</span>, id<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;floats&#34;</span>)),
+</span></span><span style="display:flex;"><span>        (param([i <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">10000</span>)], <span style="color:#ae81ff">49995000</span>, id<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;bunch of ints&#34;</span>)),
+</span></span><span style="display:flex;"><span>        (param([<span style="color:#e6db74">&#34;hello&#34;</span>, <span style="color:#e6db74">&#34; &#34;</span>, <span style="color:#e6db74">&#34;world&#34;</span>, <span style="color:#e6db74">&#34;!&#34;</span>], <span style="color:#e6db74">&#34;hello world!&#34;</span>,id<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;strings&#34;</span>)),
+</span></span><span style="display:flex;"><span>    ],
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_combine_stuff</span>(args: list[Any], exp_result: Any) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    actual <span style="color:#f92672">=</span> combine(<span style="color:#f92672">*</span>args)
+</span></span><span style="display:flex;"><span>    match exp_result:
+</span></span><span style="display:flex;"><span>        case float():
+</span></span><span style="display:flex;"><span>            buffer <span style="color:#f92672">=</span> <span style="color:#ae81ff">0.0000000001</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">assert</span> abs(actual <span style="color:#f92672">-</span> exp_result) <span style="color:#f92672">&lt;=</span> buffer
+</span></span><span style="display:flex;"><span>        case _:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">assert</span> actual <span style="color:#f92672">==</span> exp_result
+</span></span></code></pre></div><p>This gives us some really nice output and we can rest easy knowing that we
+succesfully created 5 different test cases:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>$ poetry run pytest
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">5</span> items
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_combine_stuff<span style="color:#f92672">[</span>ints<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_combine_stuff<span style="color:#f92672">[</span>more ints<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_combine_stuff<span style="color:#f92672">[</span>floats<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_combine_stuff<span style="color:#f92672">[</span>bunch of ints<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_combine_stuff<span style="color:#f92672">[</span>strings<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">===========</span> <span style="color:#ae81ff">5</span> passed in 0.01s <span style="color:#f92672">====================</span>
+</span></span></code></pre></div><p>Let&rsquo;s take a closer look at what&rsquo;s going on here&hellip;</p>
+<h3 id="the-pytest-metafunc-object">The pytest <code>Metafunc</code> object<a hidden class="anchor" aria-hidden="true" href="#the-pytest-metafunc-object">#</a></h3>
+<p>First we should break it down to an incredibly simple example. We&rsquo;ll create a
+test with 10 cases that does nothing but create a simple test case for 10
+different integers:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>numbers <span style="color:#f92672">=</span> [i <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">10</span>)]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>mark<span style="color:#f92672">.</span>parametrize(<span style="color:#e6db74">&#34;number&#34;</span>, numbers, ids<span style="color:#f92672">=</span>numbers)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_show_me_a_number</span>(number: int) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> type(number) <span style="color:#f92672">is</span> int, <span style="color:#e6db74">&#34;what did you expect?&#34;</span>
+</span></span></code></pre></div><p>The output here is stupidly simple:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>$ poetry run pytest
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">10</span> items
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>3<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>4<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>5<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>6<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>7<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>8<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>9<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">=========</span> <span style="color:#ae81ff">10</span> passed in 0.01s <span style="color:#f92672">===========</span>
+</span></span></code></pre></div><p>How might we recreate this pattern without using the decorator? Enter the
+<code>Metafunc</code> object baked into pytest. Ditching the generator for a function
+definition makes the code be a little bit uglier, but as we start to peek under
+the hood, we start seeing some of the magic that make pytest a super powerful
+test driver.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">pytest_generate_tests</span>(metafunc: pytest<span style="color:#f92672">.</span>Metafunc):
+</span></span><span style="display:flex;"><span>    marker <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;number&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> marker <span style="color:#f92672">in</span> metafunc<span style="color:#f92672">.</span>fixturenames:
+</span></span><span style="display:flex;"><span>        numbers <span style="color:#f92672">=</span> [i <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">10</span>)]
+</span></span><span style="display:flex;"><span>        metafunc<span style="color:#f92672">.</span>parametrize(marker, numbers, ids<span style="color:#f92672">=</span>numbers)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_show_me_a_number</span>(number: int) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> type(number) <span style="color:#f92672">is</span> int, <span style="color:#e6db74">&#34;what did you expect?&#34;</span>
+</span></span></code></pre></div><p>And the output looks exactly the same!</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>$ poetry run pytest
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">10</span> tems
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>3<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>4<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>5<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>6<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>7<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>8<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>9<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">==========</span> <span style="color:#ae81ff">10</span> passed in 0.01s <span style="color:#f92672">==========</span>
+</span></span></code></pre></div><p>What&rsquo;s happening here is that python takes an iterable, in this case, the
+<code>numbers</code> list comprehension, and writes a unique test case for each item as it
+iterates through. We specify a <code>marker</code> string which signifies to parametrize
+any test method that uses that string as an argument.</p>
+<p>In addition, we pass another iterable (in this case the same as the first) for
+ids to keep track of individual test case. If we replaced <code>ids=numbers</code> with
+<code>ids=[f&quot;#{n}&quot; for n in numbers]</code>, the test ids would be
+<code>test_show_me_a_number[#0]</code>, <code>test_show_me_a_number[#1]</code>,
+<code>test_show_me_a_number[#2]</code>, etc.</p>
+<p>Now that we&rsquo;re no longer limited to the decorator function, let&rsquo;s start getting
+a little more creative. For example, what if instead of parametrizing static
+values, we start using this functionality to dynamically generate tests based on
+random inputs?</p>
+<p>For example, we could generate tests based on the time of day, which is
+definitely a good idea and something we should try:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#f92672">from</span> datetime <span style="color:#f92672">import</span> datetime
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">pytest_generate_tests</span>(metafunc: pytest<span style="color:#f92672">.</span>Metafunc):
+</span></span><span style="display:flex;"><span>    marker <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;number&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> marker <span style="color:#f92672">in</span> metafunc<span style="color:#f92672">.</span>fixturenames:
+</span></span><span style="display:flex;"><span>        numbers <span style="color:#f92672">=</span> [i <span style="color:#66d9ef">for</span> i <span style="color:#f92672">in</span> range(<span style="color:#ae81ff">5</span>) <span style="color:#66d9ef">if</span> datetime<span style="color:#f92672">.</span>now()<span style="color:#f92672">.</span>microsecond <span style="color:#f92672">%</span> <span style="color:#ae81ff">2</span> <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>]
+</span></span><span style="display:flex;"><span>        metafunc<span style="color:#f92672">.</span>parametrize(marker, numbers, ids<span style="color:#f92672">=</span>numbers)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_show_me_a_number</span>(number: int) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> type(number) <span style="color:#f92672">is</span> int, <span style="color:#e6db74">&#34;what did you expect?&#34;</span>
+</span></span></code></pre></div><p>Let&rsquo;s run this one a couple of times.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ poetry run pytest
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">3</span> items
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">==========</span> <span style="color:#ae81ff">3</span> passed in 0.01s <span style="color:#f92672">===========</span>
+</span></span></code></pre></div><p>And again?</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ poetry run pytest
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">2</span> items
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>3<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>4<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">==========</span> <span style="color:#ae81ff">2</span> passed in 0.01s <span style="color:#f92672">===========</span>
+</span></span></code></pre></div><p>How about one more time?</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ poetry run pytest
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">3</span> items
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>2<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_show_me_a_number<span style="color:#f92672">[</span>3<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">==========</span> <span style="color:#ae81ff">3</span> passed in 0.01s <span style="color:#f92672">===========</span>
+</span></span></code></pre></div><p>Okay, this is weird but we&rsquo;re starting to see the underlying power. With this
+pattern we now have the ability to generate any test we want, determined by
+arbitrary inputs. While the above scenario is pretty useless from a software
+engineering perspective, there are some very useful opportunities for this sort
+of pattern in production.</p>
+<h3 id="generate-tests-by-command-line-input">Generate tests by command-line input<a hidden class="anchor" aria-hidden="true" href="#generate-tests-by-command-line-input">#</a></h3>
+<p>One fun application is that we can gather dynamic input from the command line
+and parametrize the test against multiple targets. Like let&rsquo;s say you&rsquo;re testing
+a web API that serves a semantically-versioned C++ binary built against multiple
+targets. Using metafunc we can retrieve the semver string from the command line
+and run the same test against the various platforms.</p>
+<p>This one gets a little more complicated since we need to register our
+command-line flag in a <code>conftest.py</code> file, but the code is still pretty
+straightforward.</p>
+<p>Here&rsquo;s the <code>conftest.py</code> command-line parser code:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#75715e"># conftest.py</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># needs to be in conftest so the parser picks it up before test collection</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">pytest_addoption</span>(parser: pytest<span style="color:#f92672">.</span>Parser):
+</span></span><span style="display:flex;"><span>    parser<span style="color:#f92672">.</span>addoption(
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;--semver&#34;</span>,
+</span></span><span style="display:flex;"><span>        action<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;store&#34;</span>,
+</span></span><span style="display:flex;"><span>        required<span style="color:#f92672">=</span><span style="color:#66d9ef">False</span>,
+</span></span><span style="display:flex;"><span>        help<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;specify the semver&#34;</span>,
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># let&#39;s put this in conftest too while we&#39;re at it</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">pytest_generate_tests</span>(metafunc: pytest<span style="color:#f92672">.</span>Metafunc):
+</span></span><span style="display:flex;"><span>    marker <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;semver&#34;</span>
+</span></span><span style="display:flex;"><span>    platforms <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#34;linux_x86_32&#34;</span>, <span style="color:#e6db74">&#34;linux_x86_64&#34;</span>, <span style="color:#e6db74">&#34;win32&#34;</span>, <span style="color:#e6db74">&#34;win64&#34;</span>, <span style="color:#e6db74">&#34;osx-aarch&#34;</span>]
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> marker <span style="color:#f92672">in</span> metafunc<span style="color:#f92672">.</span>fixturenames:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> version <span style="color:#f92672">:=</span> metafunc<span style="color:#f92672">.</span>config<span style="color:#f92672">.</span>getoption(<span style="color:#e6db74">&#34;--semver&#34;</span>):
+</span></span><span style="display:flex;"><span>            binaries <span style="color:#f92672">=</span> [<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;</span><span style="color:#e6db74">{</span>version<span style="color:#e6db74">}</span><span style="color:#e6db74">-</span><span style="color:#e6db74">{</span>platform<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span> <span style="color:#66d9ef">for</span> platform <span style="color:#f92672">in</span> platforms]
+</span></span><span style="display:flex;"><span>            metafunc<span style="color:#f92672">.</span>parametrize(marker, binaries, ids<span style="color:#f92672">=</span>binaries)
+</span></span></code></pre></div><p>And the test itself:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> binary_getter <span style="color:#f92672">import</span> BinaryGetter
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_get_binary</span>(semver: str) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">None</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> BinaryGetter<span style="color:#f92672">.</span>get_binary(semver), <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;unable to download </span><span style="color:#e6db74">{</span>semver<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>
+</span></span></code></pre></div><p>Using the <code>--semver</code> flag, we can now verify that we can download the same
+binary version on a bunch of different platforms:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-shell" data-lang="shell"><span style="display:flex;"><span>$ poetry run pytest --semver 3.3.7rc1
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">5</span> items
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>3.3.7rc1-linux_x86_32<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>3.3.7rc1-linux_x86_64<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>3.3.7rc1-win32<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>3.3.7rc1-win64<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>3.3.7rc1-osx-aarch<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">================</span> <span style="color:#ae81ff">5</span> passed in 0.01s <span style="color:#f92672">====================</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>$ poetry run pytest --semver 1.2.3
+</span></span><span style="display:flex;"><span>...
+</span></span><span style="display:flex;"><span>collected <span style="color:#ae81ff">5</span> items
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>1.2.3-linux_x86_32<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>1.2.3-linux_x86_64<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>1.2.3-win32<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>1.2.3-win64<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>test.py::test_get_binary<span style="color:#f92672">[</span>1.2.3-osx-aarch<span style="color:#f92672">]</span> PASSED
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">================</span> <span style="color:#ae81ff">5</span> passed in 0.01s <span style="color:#f92672">====================</span>
+</span></span></code></pre></div><p>Using this pattern we can verify any release without needing to adjust the
+source code! We could even adjust the command line flags to accept multiple
+arguments or additional platforms to start really generating a lot of tests.</p>
+<p>This sort of pattern is super useful if the person <em>running</em> the test isn&rsquo;t
+necessarily the developer who wrote or maintains the test suite, or for CI jobs
+where the output of a build job gets piped immediately into a test suite without
+needing to touch source or otherwise intervene manually.</p>
+<h3 id="parametrize-a-fixture-for-cleaner-more-atomic-test-definitions">Parametrize a fixture for cleaner, more atomic test definitions<a hidden class="anchor" aria-hidden="true" href="#parametrize-a-fixture-for-cleaner-more-atomic-test-definitions">#</a></h3>
+<p>One of the most obvious and simplest applications for <code>metafunc</code> is to use it to
+process parametrized arguments to keep tests atomic and reusable. We&rsquo;ve all
+written an e2e test that takes the &ldquo;kitchen sink&rdquo; approach that throws all of
+the test cases in a single function:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#f92672">from</span> pathlib <span style="color:#f92672">import</span> Path
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> utility_library <span style="color:#f92672">import</span> preprocess, validate
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> main_library <span style="color:#f92672">import</span> FileProcessor, FilePublisher, FileRetriever
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> reports <span style="color:#f92672">import</span> Datafile, Report, Redacted
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> company_secrets <span style="color:#f92672">import</span> disallowed_words
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>mark<span style="color:#f92672">.</span>parametrize(
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#34;raw_file&#34;</span>,
+</span></span><span style="display:flex;"><span>    [
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data1.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data2.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data3.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data4.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data5.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data6.json&#34;</span>,
+</span></span><span style="display:flex;"><span>    ],
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_file_processor_and_publisher_and_retriever</span>(raw_file: str):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># set up some preconditions</span>
+</span></span><span style="display:flex;"><span>    test_data <span style="color:#f92672">=</span> Path(raw_file)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> test_data<span style="color:#f92672">.</span>exists(), <span style="color:#e6db74">&#34;must provide valid test data file&#34;</span>
+</span></span><span style="display:flex;"><span>    starting_point: Datafile <span style="color:#f92672">=</span> preprocess(test_data)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> validate(starting_point), <span style="color:#e6db74">&#34;data can&#39;t be validated&#34;</span>
+</span></span><span style="display:flex;"><span>    fp <span style="color:#f92672">=</span> FileProcessor(starting_point)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># verify protobuf functionality</span>
+</span></span><span style="display:flex;"><span>    proto <span style="color:#f92672">=</span> fp<span style="color:#f92672">.</span>convert_to_protobuf()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> proto, <span style="color:#e6db74">&#34;unable to convert to protobuf&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># verify report-making capability</span>
+</span></span><span style="display:flex;"><span>    report: Report <span style="color:#f92672">=</span> fp<span style="color:#f92672">.</span>make_report()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> report, <span style="color:#e6db74">&#34;unable to process the report&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> report<span style="color:#f92672">.</span>passes_validation(), <span style="color:#e6db74">&#34;report is invalid&#34;</span>
+</span></span><span style="display:flex;"><span>    redacted: Redacted <span style="color:#f92672">=</span> report<span style="color:#f92672">.</span>redacted()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> redacted, <span style="color:#e6db74">&#34;unable to redact the report&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> word <span style="color:#f92672">in</span> disallowed_words:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> word <span style="color:#f92672">not</span> <span style="color:#f92672">in</span> str(redacted), <span style="color:#e6db74">&#34;we leaked company secrets!&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># verify we can publish the report</span>
+</span></span><span style="display:flex;"><span>    publisher <span style="color:#f92672">=</span> FilePublisher()
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> publisher<span style="color:#f92672">.</span>publish(report), <span style="color:#e6db74">&#34;unable to publish report&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> publisher<span style="color:#f92672">.</span>publish(redacted), <span style="color:#e6db74">&#34;unable to publish redacted report&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    retriever <span style="color:#f92672">=</span> FileRetriever()
+</span></span><span style="display:flex;"><span>    retrieved_report <span style="color:#f92672">=</span> retriever<span style="color:#f92672">.</span>retrieve(report<span style="color:#f92672">.</span>name)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> retrieved_report <span style="color:#f92672">==</span> report, <span style="color:#e6db74">&#34;unable to download retrieved report&#34;</span>
+</span></span><span style="display:flex;"><span>    retrieved_redacted <span style="color:#f92672">=</span> retriever<span style="color:#f92672">.</span>retrieve(redacted<span style="color:#f92672">.</span>name)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">assert</span> retrieved_redacted <span style="color:#f92672">==</span> redacted, <span style="color:#e6db74">&#34;unable to download redacted report&#34;</span>
+</span></span></code></pre></div><p>If you managed to even read the whole test, you would see that while this is
+probably a really great test that does all of the things it needs to, it&rsquo;s both
+fragile and unextensible. What happens if you fail to publish the report, for
+example? Pytest skips the <code>FileRetriever</code> code and we&rsquo;ll never know about any
+bugs there until the <code>FilePublisher</code> code gets fixed first.</p>
+<p>Without knowledge of <code>metafunc</code>, the &ldquo;simple&rdquo; solution is to split the functions
+into separate methods and apply the <code>parametrize</code> decorator to each one. This
+helps avoid missing regressions in <code>FileRetriever</code>, but we can still do better.</p>
+<p>Instead, if we use <code>metafunc</code> in combination with other fixtures, we can DRY up
+our code and make it much easier to write new test cases as needed. In this case
+we may even want to split all of the fixtures into its own conftest to make the
+test cases even cleaner to look at:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#75715e"># conftest.py</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> pathlib <span style="color:#f92672">import</span> Path
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">import</span> pytest
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> utility_library <span style="color:#f92672">import</span> preprocess, validate
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> main_library <span style="color:#f92672">import</span> FileProcessor, FilePublisher, FileRetriever
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> reports <span style="color:#f92672">import</span> Datafile, Report, Redacted
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">pytest_generate_tests</span>(metafunc: pytest<span style="color:#f92672">.</span>Metafunc):
+</span></span><span style="display:flex;"><span>    raw_files <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data1.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data2.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data3.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data4.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data5.json&#34;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#34;/path/to/data6.json&#34;</span>,
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># do pre-processing here</span>
+</span></span><span style="display:flex;"><span>    test_data <span style="color:#f92672">=</span> [Path(raw_file) <span style="color:#66d9ef">for</span> raw_file <span style="color:#f92672">in</span> raw_files]
+</span></span><span style="display:flex;"><span>    datafiles: list[Datafile] <span style="color:#f92672">=</span> []
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> td <span style="color:#f92672">in</span> test_data:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> td<span style="color:#f92672">.</span>exists(), <span style="color:#e6db74">&#34;must provide valid test data file&#34;</span>
+</span></span><span style="display:flex;"><span>        datafile <span style="color:#f92672">=</span> preprocess(td)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> validate(datafile), <span style="color:#e6db74">&#34;data can&#39;t be validated&#34;</span>
+</span></span><span style="display:flex;"><span>        datafiles<span style="color:#f92672">.</span>append(datafile)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    marker <span style="color:#f92672">=</span> (<span style="color:#e6db74">&#34;datafile&#34;</span>,)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> marker <span style="color:#f92672">in</span> metafunc<span style="color:#f92672">.</span>fixturenames:
+</span></span><span style="display:flex;"><span>        metafunc<span style="color:#f92672">.</span>parametrize(marker, datafiles, ids<span style="color:#f92672">=</span>datafiles, scope<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;class&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>fixture(scope<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;class&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">file_processor</span>(datafile: Datafile) <span style="color:#f92672">-&gt;</span> FileProcessor:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> FileProcessor(datafile)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>fixture(scope<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;class&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">report</span>(file_processor: FileProcessor) <span style="color:#f92672">-&gt;</span> Report:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> file_processor<span style="color:#f92672">.</span>make_report()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>fixture(scope<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;class&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">redacted</span>(report: Report) <span style="color:#f92672">-&gt;</span> Redacted:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> report<span style="color:#f92672">.</span>redacted()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>fixture(scope<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;class&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">publisher</span>() <span style="color:#f92672">-&gt;</span> FilePublisher:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> FilePublisher()
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@pytest</span><span style="color:#f92672">.</span>fixture(scope<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;class&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">retriever</span>() <span style="color:#f92672">-&gt;</span> FileRetriever:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> FileRetriever()
+</span></span></code></pre></div><p>Now, any test or fixture that uses the <code>datafile</code> fixture as an argument will be
+parametrized by whatever inputs we define in the conftest. Since the
+<code>file_processor</code> fixture calls <code>datafile</code>, it will get the parametrization
+treatment and get re-instantiated (and tested) for each test case. The same goes
+for <code>report</code> which calls <code>file_processor</code>, and by extension <code>redacted</code> which
+calls <code>report</code>. The final two fixtures <code>publisher</code> and <code>retriever</code> only get
+instantiated once because they aren&rsquo;t involved in any of the parametrization.</p>
+<p>We should take a minute to visit the <code>scope=&quot;class&quot;</code> argument we add to the
+<code>metafunc.parametrize()</code> call. Just like with regular fixtures, this means that
+while we can reinstantiate the fixtures for each item in <code>datafiles</code>, we don&rsquo;t
+reinstantiate the object more than once per class. This essentially lets us
+reuse the same file descriptor over and over again for the entire test class to
+reduce file I/O and improve test speed. Of course we could name the scope
+whatever we wanted, and if we were concerned about side effects and leaking
+state, we would likely want to parametrize using <code>scope=&quot;function&quot;</code>.</p>
+<p>Now that the conftest is complete, we can see a very clean and atomic test file.
+So clean in fact, we don&rsquo;t even need to call <code>import pytest</code> since all of the
+test configuration has been pushed outside of the main test file.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python3" data-lang="python3"><span style="display:flex;"><span><span style="color:#75715e"># test.py</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> main_library <span style="color:#f92672">import</span> FileProcessor, FilePublisher, FileRetriever
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> reports <span style="color:#f92672">import</span> Datafile, Report, Redacted
+</span></span><span style="display:flex;"><span><span style="color:#f92672">from</span> company_secrets <span style="color:#f92672">import</span> disallowed_words
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">TestFileProcessorAndPublisherAndRetriever</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_protobuf_functionality</span>(self, file_processor: FileProcessor):
+</span></span><span style="display:flex;"><span>        proto <span style="color:#f92672">=</span> file_processor<span style="color:#f92672">.</span>convert_to_protobuf()
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> proto, <span style="color:#e6db74">&#34;unable to convert to protobuf&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_make_report</span>(self, report: Report):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> report, <span style="color:#e6db74">&#34;unable to process the report&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> report<span style="color:#f92672">.</span>passes_validation(), <span style="color:#e6db74">&#34;report is invalid&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_redacted</span>(self, redacted: Redacted):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> redacted, <span style="color:#e6db74">&#34;unable to redact the report&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">for</span> word <span style="color:#f92672">in</span> disallowed_words:
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">assert</span> word <span style="color:#f92672">not</span> <span style="color:#f92672">in</span> str(redacted), <span style="color:#e6db74">&#34;we leaked company secrets!&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_publish_and_retrieve_report</span>(
+</span></span><span style="display:flex;"><span>        self, publisher: FilePublisher, retriever: FileRetriever, report: Report
+</span></span><span style="display:flex;"><span>    ):
+</span></span><span style="display:flex;"><span>        retrieved_report <span style="color:#f92672">=</span> retriever<span style="color:#f92672">.</span>retrieve(report<span style="color:#f92672">.</span>name)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> publisher<span style="color:#f92672">.</span>publish(report), <span style="color:#e6db74">&#34;unable to publish report&#34;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> retrieved_report <span style="color:#f92672">==</span> report, <span style="color:#e6db74">&#34;unable to download retrieved report&#34;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">test_publish_and_retrieve_redacted</span>(
+</span></span><span style="display:flex;"><span>        self, publisher: FilePublisher, retriever: FileRetriever, redacted: Redacted
+</span></span><span style="display:flex;"><span>    ):
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> publisher<span style="color:#f92672">.</span>publish(redacted), <span style="color:#e6db74">&#34;unable to publish redacted report&#34;</span>
+</span></span><span style="display:flex;"><span>        retrieved_redacted <span style="color:#f92672">=</span> retriever<span style="color:#f92672">.</span>retrieve(redacted<span style="color:#f92672">.</span>name)
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">assert</span> retrieved_redacted <span style="color:#f92672">==</span> redacted, <span style="color:#e6db74">&#34;unable to download redacted report&#34;</span>
+</span></span></code></pre></div><p>The beauty of this approach is that pretty much anybody can see what these tests
+are doing and what they are validating. If we want to write more tests or tweak
+the acceptance criteria, it&rsquo;s very easy to do without breaking other
+functionality. And if we want to change the list of data input files to test
+against, we can simply adjust the items in the list inside our conftest file.</p>
+<h3 id="looking-for-more">Looking for more?<a hidden class="anchor" aria-hidden="true" href="#looking-for-more">#</a></h3>
+<p>We&rsquo;re just starting to scratch the surface of Pytest functionality, but this is
+a good look at some of the more powerful applications for Pytest, and a reason
+that many people (like myself) use Python and Pytest to test targets that aren&rsquo;t
+even <em>written</em> in Python. As an integration/e2e test framework for testing any
+API that Python can connect to, Pytest is unrivaled for extensibility and being
+able to quickly generate multiple tests using Python&rsquo;s flexibility and robust
+metaprogramming support.</p>
+<p>Want more info about <code>metafunc</code>? Check out the
+<a href="https://github.com/pytest-dev/pytest/blob/main/src/_pytest/python.py#L1165">source code</a>
+yourself!</p>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="http://bloomblag.com/tags/python/">python</a></li>
+      <li><a href="http://bloomblag.com/tags/testing/">testing</a></li>
+      <li><a href="http://bloomblag.com/tags/software/">software</a></li>
+    </ul>
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+  <span>&copy;2022 ntbloom</span>
+</footer>
+<a
+  href="#top"
+  aria-label="go to top"
+  title="Go to Top (Alt + G)"
+  class="top-link"
+  id="top-link"
+  accesskey="g"
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 12 6"
+    fill="currentColor"
+  >
+    <path d="M12 6H0l6-6z" />
+  </svg>
+</a>
+
+<script>
+  let menu = document.getElementById("menu");
+  if (menu) {
+    menu.scrollLeft = localStorage.getItem("menu-scroll-position");
+    menu.onscroll = function () {
+      localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+    };
+  }
+
+  document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+    anchor.addEventListener("click", function (e) {
+      e.preventDefault();
+      var id = this.getAttribute("href").substr(1);
+      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        document
+          .querySelector(`[id='${decodeURIComponent(id)}']`)
+          .scrollIntoView({
+            behavior: "smooth",
+          });
+      } else {
+        document
+          .querySelector(`[id='${decodeURIComponent(id)}']`)
+          .scrollIntoView();
+      }
+      if (id === "top") {
+        history.replaceState(null, null, " ");
+      } else {
+        history.pushState(null, null, `#${id}`);
+      }
+    });
+  });
+</script>
+<script>
+  var mybutton = document.getElementById("top-link");
+  window.onscroll = function () {
+    if (
+      document.body.scrollTop > 800 ||
+      document.documentElement.scrollTop > 800
+    ) {
+      mybutton.style.visibility = "visible";
+      mybutton.style.opacity = "1";
+    } else {
+      mybutton.style.visibility = "hidden";
+      mybutton.style.opacity = "0";
+    }
+  };
+</script>
+</body>
+
+</html>
