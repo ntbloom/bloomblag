@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>testing on bloomblag</title>
-    <link>https://bloomblag.com/tags/testing/</link>
+    <link>https://www.bloomblag.com/tags/testing/</link>
     <description>Recent content in testing on bloomblag</description>
     <generator>Hugo -- gohugo.io</generator>
     <language>en-us</language>
-    <lastBuildDate>Mon, 12 Sep 2022 22:01:43 -0400</lastBuildDate><atom:link href="https://bloomblag.com/tags/testing/index.xml" rel="self" type="application/rss+xml" />
+    <lastBuildDate>Mon, 12 Sep 2022 22:01:43 -0400</lastBuildDate><atom:link href="https://www.bloomblag.com/tags/testing/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>A deep dive into the Pytest metafunc fixture</title>
-      <link>https://bloomblag.com/posts/pytest-metaprogramming/</link>
+      <link>https://www.bloomblag.com/posts/pytest-metaprogramming/</link>
       <pubDate>Mon, 12 Sep 2022 22:01:43 -0400</pubDate>
       
-      <guid>https://bloomblag.com/posts/pytest-metaprogramming/</guid>
+      <guid>https://www.bloomblag.com/posts/pytest-metaprogramming/</guid>
       <description>Why write one test when you could write 100?</description>
     </item>
     
